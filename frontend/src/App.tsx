@@ -17,7 +17,7 @@ import { ItemRow } from './components/ItemRow';
 
 export const App: React.FC = () => {
     const [items, setItems] = useState<Item[]>([]);
-    const [total, setTotal] = useState(0);
+    const [total, setTotal] = useState(1000000);
     const [hasMore, setHasMore] = useState(true);
     const [query, setQuery] = useState('');
     const [selected, setSelected] = useState<Set<number>>(new Set());
@@ -50,7 +50,7 @@ export const App: React.FC = () => {
                 }
 
                 setItems(fetched);
-                setTotal(fetched.length);
+                setTotal(total);
                 setHasMore(fetched.length < 1000000);
 
             } catch (error) {

@@ -1,7 +1,7 @@
 import axios from 'axios';
 import type { Item } from './types';
 
-const api = axios.create({ baseURL: '/api' });
+const api = axios.create({ baseURL: '/list/api' });
 
 export interface FetchItemsParams {
     skip?: number;
