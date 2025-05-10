@@ -10,7 +10,7 @@ import {
 } from '@dnd-kit/core'
 import { SortableContext, arrayMove, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import InfiniteScroll from 'react-infinite-scroll-component';
-import { fetchItems, fetchState, saveState } from './api';
+import { fetchItems, fetchState, saveMove, saveState } from './api';
 import type { Item } from './types';
 import { SearchBar } from './components/SearchBar';
 import { ItemRow } from './components/ItemRow';
@@ -51,7 +51,7 @@ export const App: React.FC = () => {
 
                 setItems(fetched);
                 setTotal(total);
-                setHasMore(fetched.length < 1000000);
+                setHasMore(fetched?.length < 1000000);
 
             } catch (error) {
                 console.error('Ошибка загрузки:', error);
@@ -67,7 +67,6 @@ export const App: React.FC = () => {
         localStorage.setItem('savedQuery', query);
     }, [query]);
 
-    // Обработчик поиска
     useEffect(() => {
         const handleSearch = async () => {
             if (firstSearch.current) {
@@ -87,15 +86,14 @@ export const App: React.FC = () => {
 
             setItems(fetched);
             setTotal(total);
-            setHasMore(fetched.length < total);
+            setHasMore(fetched?.length < total);
         };
         handleSearch();
     }, [query]);
 
-    // Загрузка дополнительных элементов
     const loadMore = useCallback(async () => {
         const { items: more, total } = await fetchItems({
-            skip: items.length,
+            skip: items?.length,
             limit: 20,
             q: query
         });
@@ -105,7 +103,7 @@ export const App: React.FC = () => {
         setPagesLoaded(p => p + 1);
         setHasMore(newItems.length < total);
 
-        await saveState(query, newItems.map(i => i.id), Array.from(selected), pagesLoaded + 1);
+        await saveState(query, null, Array.from(selected), pagesLoaded + 1);
     }, [items, query, selected, pagesLoaded]);
 
     const sensors = useSensors(
@@ -114,23 +112,52 @@ export const App: React.FC = () => {
     )
 
     const handleSelect = async (id: number, checked: boolean) => {
-        const newSelected = new Set(selected);
-        checked ? newSelected.add(id) : newSelected.delete(id);
-        setSelected(newSelected);
+        setSelected(prev => {
+            const next = new Set(prev)
+            if (checked) next.add(id)
+            else next.delete(id)
 
-        await saveState(query, items.map(i => i.id), Array.from(newSelected), pagesLoaded);
-    };
+            // сразу сохраняем отмеченные элементы
+            saveMove({
+                q: query,
+                movedId: null,
+                beforeId: null,
+                pagesLoaded,
+                selected: Array.from(next),
+            }).catch(console.error)
+
+            return next
+        })
+    }
 
     const handleDragEnd = async (event: DragEndEvent) => {
         const { active, over } = event;
-        if (over && active.id !== over.id) {
-            const oldIndex = items.findIndex(i => i.id === active.id);
-            const newIndex = items.findIndex(i => i.id === over.id);
-            const newItems = arrayMove(items, oldIndex, newIndex);
+        if (!over || active.id === over.id) return;
 
-            setItems(newItems);
-            await saveState(query, newItems.map(i => i.id), Array.from(selected), pagesLoaded);
+        const oldIdx = items.findIndex(i => i.id === active.id);
+        const newIdx = items.findIndex(i => i.id === over.id);
+        const newItems = arrayMove(items, oldIdx, newIdx);
+        setItems(newItems);
+
+        // Находим beforeId — тот, ПЕРЕД кем надо вставить
+        let beforeId: number | null = null;
+
+        if (oldIdx < newIdx) {
+            // Двигаем вниз — берём следующий элемент за over
+            const afterOver = items[newIdx + 1];
+            beforeId = afterOver?.id ?? null;
+        } else {
+            // Двигаем вверх — вставляем прямо перед over
+            beforeId = items[newIdx].id;
         }
+
+        await saveMove({
+            q: query,
+            movedId: Number(active.id),
+            beforeId,
+            pagesLoaded,
+            selected: Array.from(selected),
+        });
     };
 
     return (
@@ -151,22 +178,22 @@ export const App: React.FC = () => {
                 <div style={{width: 400, margin: '0 auto'}}>
                     <SearchBar value={query} onChange={setQuery}/>
                     <h3>Всего элементов: {total}</h3>
-                    <h3>Загружено: {items.length}</h3>
+                    <h3>Загружено: {items?.length}</h3>
                 </div>
             </div>
             {isLoading ? (
                 <div>Идет загрузка...</div>
             ) : (
                 <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                    <SortableContext items={items.map(i => i.id)} strategy={verticalListSortingStrategy}>
+                    {items && <SortableContext items={items?.map(i => i.id)} strategy={verticalListSortingStrategy}>
                         <InfiniteScroll
-                            dataLength={items.length}
+                            dataLength={items?.length}
                             next={loadMore}
                             hasMore={hasMore}
                             loader={<h4>Загрузка...</h4>}
                             /*scrollableTarget="window"*/
                         >
-                            {items.map(item => (
+                            {items?.map(item => (
                                 <ItemRow
                                     key={item.id}
                                     item={item}
@@ -175,7 +202,7 @@ export const App: React.FC = () => {
                                 />
                             ))}
                         </InfiniteScroll>
-                    </SortableContext>
+                    </SortableContext>}
                 </DndContext>
             )}
         </div>

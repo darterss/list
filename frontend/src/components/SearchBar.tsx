@@ -1,11 +1,7 @@
-import type {FC} from 'react'
+import type { FC } from 'react'
+import type { SearchParams } from "../types.ts";
 
-interface Props {
-    value: string
-    onChange: (v: string) => void
-}
-
-export const SearchBar: FC<Props> = ({ value, onChange }) => (
+export const SearchBar: FC<SearchParams> = ({ value, onChange }) => (
     <input
         type="text"
         placeholder="Поиск по ID..."

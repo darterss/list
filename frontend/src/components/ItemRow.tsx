@@ -1,15 +1,9 @@
 import React from 'react'
 import { useSortable, defaultAnimateLayoutChanges } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import type { Item } from '../types'
+import type { ItemRowParams } from '../types'
 
-type Props = {
-    item: Item
-    selected: boolean
-    onSelect: (id: number, checked: boolean) => void
-}
-
-export const ItemRow: React.FC<Props> = ({ item, selected, onSelect }) => {
+export const ItemRow: React.FC<ItemRowParams> = ({ item, selected, onSelect }) => {
     if (!item) return null;
     const {
         attributes,
